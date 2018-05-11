@@ -56,8 +56,8 @@ int check(int *checkarray, char *argv)
 	
 	/* After reading in all the options, check to make
  	   sure that none of them contradict each other */
- 	if ((argv[0] && argv[1]) || (argv[0] && argv[2])
-		|| (argv[1] && argv[2]))
+ 	if ((checkarray[0] == 1 && checkarray[1] == 1) || (checkarray[0] == 1 && checkarray[2] == 1)
+		|| (checkarray[1] == 1 && checkarray[2] == 1))
 	{
 		fprintf(stderr, "Only one of c, t, or x can be specified\n");
 		return -1;
