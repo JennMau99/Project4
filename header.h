@@ -16,6 +16,7 @@ struct Header {
         char devmajor[8];
         char devminor[8];
         char prefix[155];
+	char hi[12];
 };
 
 
