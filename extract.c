@@ -157,7 +157,7 @@ void extract(int tar, int verbose)
 		offset = findoffset(tar, offset);
 	}
 }
-
+/*
 int main(int argc, char *argv[])
 {
 	int tar;
@@ -165,3 +165,4 @@ int main(int argc, char *argv[])
 	extract(tar, 1);
 	return 0;
 }
+*/
