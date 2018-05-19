@@ -23,7 +23,6 @@ struct Header {
 
 
 
-void make_header(char *file, char filetype);
 
 int check(int *checkarray, char *argv);
 
