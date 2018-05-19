@@ -55,6 +55,8 @@ int make_tree(char *tar)
 	{
 		if(strcmp(head.magic, "ustar  ") == 0)
 		{
+
+		
 			mode = strtol(head.mode, '\0', 8);
 			/*print permissions	*/	
 			printf( (S_ISDIR(mode)) ? "d" : "-");
@@ -69,7 +71,8 @@ int make_tree(char *tar)
    			printf( (mode & S_IXOTH) ? "x" : "-");
 	
 			printf(" ");	
-		
+
+	
 			/*print group and username*/	
 			groupuser = malloc(strlen(head.gname) + strlen(head.uname) + 2);
 			strcpy(groupuser, head.gname);

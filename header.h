@@ -21,9 +21,6 @@ struct Header {
 
 
 
-
-
-
 int check(int *checkarray, char *argv);
 
 typedef struct Header header;
