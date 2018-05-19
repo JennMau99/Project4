@@ -23,28 +23,26 @@ int char_total(char *name);
 int checksum;
 void listdir(char *tar, char *name, int indent);
 int insert_special_int(char *where, int size, int32_t val);
-
-int main(int argc, char **argv)
+char uid[8];
+int create(int argc, char **argv)
 {
 	int i = 0;
 	int fd = 0;
 	char buff[512];
 	struct stat st;
 	char * buffer;
-	if(argc < 2)
-	{
-		printf("usage err");
-		return 1;
+	
+	/*In this implementation, argc and argv v from main are passed to create*/
 
-	}
 
+	/*Jennifer -- the first open here opens/creates the tar file, change the arg number as necesary*/
 	/*make tar file*/
 	fd = open(argv[1], O_CREAT | O_TRUNC | O_WRONLY, 0700);
 	close(fd);
 
 	i = 2;
 
-	
+	/*then the rest of the args are cycled through (remaining files)*/
 	while(i < argc)
 	{
 		stat(argv[i], &st);
@@ -64,6 +62,7 @@ int main(int argc, char **argv)
 	
 	fd = open(argv[1], O_WRONLY | O_APPEND);
 
+	/*ending buffers*/
 	write(fd, &buff, 512);
 	write(fd, &buff, 512);
 
@@ -141,16 +140,15 @@ header* make_header(char * file)
         struct passwd *pwd;
 	head = (header*)calloc(1, sizeof(header));
 	stat(file, &st);
-	
 	/*name -- clear memset, check prefix later*/
         strcpy(head->name, file);
 
         /*mode*/
         sprintf(head->mode, "%07o", (st.st_mode & 0x1F7FFF));
 
-        /*UID*//*
-        sprintf(head->uid, "%07o", (unsigned short)st.st_uid);
-	*/
+        /*UID*/
+        sprintf(uid, "%07o", (unsigned short)st.st_uid);
+	
 	
 	insert_special_int(head->uid, 8, (uint32_t)st.st_uid);
 	/*GID*/
@@ -163,7 +161,6 @@ header* make_header(char * file)
 
         /*mtime*/
         sprintf(head->mtime, "%011o", (int)st.st_mtime);
-	/*do checksum at end*/
 
         /*typeflag*/
         if(S_ISREG(st.st_mode))
@@ -179,7 +176,9 @@ header* make_header(char * file)
 
 
         /*magic*/
-        strcpy(head->magic, "ustar  ");
+        strcpy(head->magic, "ustar");
+	head->magic[6] = '0';
+	head->magic[7] = '0';
 
 
         /*uname and gname? */
@@ -206,7 +205,7 @@ void get_checksum(header *head)
 	ptr = (char*)(head->mode);
         checksum += char_total(ptr);
 
-	ptr = (char*)(head->uid);
+	ptr = (char*)(uid);
         checksum += char_total(ptr);
 
 	ptr = (char*)(head->gid);
@@ -242,6 +241,8 @@ void get_checksum(header *head)
 	 ptr = (char*)(head->devminor);
         checksum += char_total(ptr);
 
+	checksum+=77;
+	checksum+=96;
 	sprintf(head->chksum, "%07o", checksum);
 }	
 

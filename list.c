@@ -29,8 +29,10 @@ struct Node {
 typedef struct Node node;
 int make_tree(char *tar);
 
-int main(int argc, char **argv)
+int list(int argc, char **argv)
 {
+
+	/*read implementation notes in create*/
 
 	 make_tree(argv[1]);
 
