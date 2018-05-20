@@ -37,10 +37,10 @@ int create(int argc, char **argv)
 
 	/*Jennifer -- the first open here opens/creates the tar file, change the arg number as necesary*/
 	/*make tar file*/
-	fd = open(argv[1], O_CREAT | O_TRUNC | O_WRONLY, 0700);
+	fd = open(argv[2], O_CREAT | O_TRUNC | O_WRONLY, 0700);
 	close(fd);
 
-	i = 2;
+	i = 3;
 
 	/*then the rest of the args are cycled through (remaining files)*/
 	while(i < argc)
@@ -51,16 +51,16 @@ int create(int argc, char **argv)
 			buffer = (char *)malloc((strlen(argv[i]) + 1) * sizeof(char)); 
                 	strcpy(buffer, argv[i]);
 			strcat(buffer, "/");
-			filewriter(argv[1], buffer);
+			filewriter(argv[2], buffer);
 			printf("%s\n", buffer);
         	}	
-		listdir(argv[1], argv[i], 0);
+		listdir(argv[2], argv[i], 0);
 		i++;
 	}
 	
 	memset(&buff, 0, 512);
 	
-	fd = open(argv[1], O_WRONLY | O_APPEND);
+	fd = open(argv[2], O_WRONLY | O_APPEND);
 
 	/*ending buffers*/
 	write(fd, &buff, 512);

@@ -62,6 +62,12 @@ int check(int *checkarray, char *argv)
 		fprintf(stderr, "Only one of c, t, or x can be specified\n");
 		return -1;
 	}
+
+	if (checkarray[4] == 0)
+	{
+		fprintf(stderr, "option f must be present for mytar\n");
+		return -1;
+	}
 	
 	return 0;
 }
