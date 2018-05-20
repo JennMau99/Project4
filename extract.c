@@ -3,6 +3,8 @@
  * Project 4
  */
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -11,6 +13,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+
 
 void writeids(char *path, int tar, off_t offset);
 
@@ -45,7 +48,12 @@ int maketree(char *path, char type, int mode, int verbose, int tar, off_t offset
 		else if (type == '2')
 			fd = -2;
 		else
-			fd = open(path, O_RDWR | O_TRUNC | O_CREAT);
+		{
+			if (mode)
+				fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0777);
+			else
+				fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0666);
+		}
 	}
 	if (verbose == 1)
 		fprintf(stdout, "%s\n", path);
@@ -63,9 +71,14 @@ uint32_t extractspecialint(char *where, int len)
 	return val;
 }
 
-void writesym(int tar, off_t offset)
+void writesym(int tar, off_t offset, char *nameptr)
 {
-
+	char *linkname;
+	linkname = (char*)malloc(sizeof(char) * 101);
+	linkname[100] = '\0';
+	lseek(tar, offset+157, SEEK_SET);
+	read(tar, linkname, 100);
+	symlink(linkname, nameptr);
 }
 
 void writefile(int fd, int tar, off_t offset)
@@ -112,10 +125,10 @@ void writeids(char *path, int tar, off_t offset)
 	free(gid);
 }
 
-void checktype(int fd, int tar, off_t offset)
+void checktype(int fd, int tar, off_t offset, char *prefixptr)
 {
 	if (fd == -2)
-		writesym(tar, offset);
+		writesym(tar, offset, prefixptr);
 	else if (fd > 0)
 		writefile(fd, tar, offset);
 }
@@ -276,7 +289,7 @@ int extract(int argc, char *argv[], int verbose)
 			}
 		
 			/* Call writetree from here */
-			checktype(fd, tar, offset); 
+			checktype(fd, tar, offset, prefixptr); 
 		}
 		/* increment offset by checking if lseek is at a new file/dir */
 		offset = findoffset(tar, offset);
