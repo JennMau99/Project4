@@ -1,0 +1,8 @@
+This is a file that will be archived by tar.
+It has multiple lines.
+The current line number is the average number of hours of sleep I get per night.
+1234567890qwertyuiopasdfghjklzxcvbnm
+This will be archived with GNU's tar to test mytar's extract.
+Line #6
+Line #7
+This is the end.
