@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	/* extract takes the argv of tar and an int indicating verbose (1 = true, 0 = false) */	
 	if (options[2] == 1)
 	{
-		if (extract(argv[2], options[3]) < 0)
+		if (extract(argc, argv, options[3]) < 0)
 			return -1;
 	}
 

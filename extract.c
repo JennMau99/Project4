@@ -10,8 +10,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
 
-int maketree(char *path, char type, mode_t mode, int verbose)
+void writeids(char *path, int tar, off_t offset);
+
+
+int maketree(char *path, char type, int mode, int verbose, int tar, off_t offset)
 {
 	struct stat treeStat;
 	int fd;
@@ -26,9 +30,13 @@ int maketree(char *path, char type, mode_t mode, int verbose)
 		else if (type == '2')
 			fd = -2;
 		else
-		{		
-			fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0666);
+		{	
+			if (mode)
+				fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0777);
+			else	
+				fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0666);
 		}
+		writeids(path, tar, offset);
 	}
 	else
 	{
@@ -42,6 +50,17 @@ int maketree(char *path, char type, mode_t mode, int verbose)
 	if (verbose == 1)
 		fprintf(stdout, "%s\n", path);
 	return fd;
+}
+
+uint32_t extractspecialint(char *where, int len)
+{
+	int32_t val = -1;
+	if ((len >= sizeof(val)) && (where[0] & 0x80))
+	{
+		val = *(int32_t *)(where+len-sizeof(val));
+		val = ntohl(val);
+	}
+	return val;
 }
 
 void writesym(int tar, off_t offset)
@@ -63,6 +82,34 @@ void writefile(int fd, int tar, off_t offset)
 	read(tar, buffer, intsize);
 	write(fd, buffer, intsize);
 	close(fd);
+	free(size);
+}
+
+void writeids(char *path, int tar, off_t offset)
+{
+	char *uid;
+	char *gid;
+	int32_t writeuid;
+	int32_t writegid;
+	int len;
+	uid = (char *)malloc(sizeof(char) * 9);
+	gid = (char *)malloc(sizeof(char) * 9);
+	uid[8] = '\0';
+	gid[8] = '\0';
+	lseek(tar, offset+108, SEEK_SET);
+	read(tar, uid, 8);
+	lseek(tar, offset+116, SEEK_SET);
+	read(tar, gid, 8);
+	len = strlen(uid);
+	writeuid = extractspecialint(uid, len);
+	if (writeuid < 0)
+		writeuid = atoi(uid);
+	writegid = atoi(gid);
+
+	chown(path, writeuid, writegid);
+	
+	free(uid);
+	free(gid);
 }
 
 void checktype(int fd, int tar, off_t offset)
@@ -78,7 +125,8 @@ off_t findoffset(int tar, off_t offset)
 	char *size;
 	int intsize;
 	int blocks;
-	size = (char *)malloc(sizeof(char) * 12);
+	char version[2];
+	size = (char *)malloc(sizeof(char) * 12);	
 	lseek(tar, offset+124, SEEK_SET);
 	read(tar, size, 12);
 	intsize = strtol(size, NULL, 8);
@@ -87,20 +135,73 @@ off_t findoffset(int tar, off_t offset)
 	else if (intsize < 512)
 		blocks = 2;
 	else if (intsize % 512 != 0)
-		blocks = (intsize % 512) + 1;
+		blocks = (intsize / 512) + 2 ; /* intsize % 512  */
 	else
-		blocks = intsize % 512;
+		blocks = intsize / 512 + 1;
 	offset = offset + (blocks * 512);
+	/*fprintf(stderr, "size was %d\n", intsize);
+	fprintf(stderr, "offset is now %d\n", offset);
+	*/
+
+	/* Stuff to help avoid corrupted parts of files */
+	lseek(tar, offset+263, SEEK_SET);
+	read(tar, &version, 2);
+	/*if (version[0] != '0' || version[1] != '0')
+		return 0;
+	*/
+
 	return offset;
 }
 
-/*
-mode_t findmode(int tar, off_t offset)
+int findmode(int tar, off_t offset)
 {
+	char *mode;
+	long int newmode;
+	lseek(tar, offset+100, SEEK_SET);
+	mode = (char *)malloc(sizeof(char) * 9);
+	read(tar, mode, 8);
+	mode[8] = '\0';
+	newmode = strtol(mode, NULL, 8);
+	
+	if (newmode & S_IXUSR || newmode & S_IXGRP || newmode & S_IXOTH)
+		return 1;
 
+	return 0;
 }	
-*/
-void extract(int tar, int verbose)
+
+int compnames(char *prefixptr, int argc, char *argv[])
+{
+	int i = 3;
+	int givenlen;
+	int same = 0;
+	char *sameptr;
+	char *copyarg;
+	int j = 1;
+	while (i < argc)
+	{
+		givenlen = strlen(argv[i]);
+		same = strncmp(prefixptr, argv[i], givenlen);
+		if (same == 0)
+			return 1;
+
+		j = 1;
+		copyarg = (char *)malloc(sizeof(char) * givenlen);
+		while (argv[i][givenlen-j] != '/')
+		{
+			j++;
+			givenlen -= 1;
+		}
+		strncpy(copyarg, argv[i], givenlen);
+
+		sameptr = strstr(copyarg, prefixptr);
+		if (sameptr != NULL)
+			return 1;
+		i++;
+	}
+	return 0;
+}
+
+int extract(int argc, char *argv[], int verbose)
 {
 	off_t offset = 0;
 	char *bufferptr;
@@ -109,10 +210,25 @@ void extract(int tar, int verbose)
 	int lenprefix;
 	int lenname;
 	int fd;
+	int tar;
+	int namesgiven = 0;
+	int same = 0;
 	char zerocheck = '\0';
-	mode_t mode = S_IWUSR;
+	int mode = 0;
+	
 
-	while (lseek(tar, offset, SEEK_SET) < lseek(tar, 0, SEEK_END))
+	tar = open(argv[2], O_RDONLY, 0700);
+
+	if (argc > 3)
+		namesgiven = 1;
+
+	if (tar < 0)
+	{
+		fprintf(stderr, "Error opening tar file\n");
+		return -1;
+	}
+
+	while (lseek(tar, offset, SEEK_SET) < (lseek(tar, 0, SEEK_END) - 1024))
 	{
 		lseek(tar, offset, SEEK_SET);
 		bufferptr = (char *)malloc(sizeof(char) * 100);
@@ -147,22 +263,28 @@ void extract(int tar, int verbose)
 		/* This should probably return a file descriptor so I can write to it right after maketree */
 		lseek(tar, offset, SEEK_SET);
 		read(tar, &zerocheck, 1);
-		if (zerocheck != '\0')
-			fd = maketree(prefixptr, type, mode, verbose);
 
-		/* Call writetree from here */
-		checktype(fd, tar, offset); 
+		if (namesgiven)
+			same = compnames(prefixptr, argc, argv);
 
+		if (!namesgiven || same)
+		{
+			if (zerocheck != '\0')
+			{
+				mode = findmode(tar, offset);
+				fd = maketree(prefixptr, type, mode, verbose, tar, offset);
+			}
+		
+			/* Call writetree from here */
+			checktype(fd, tar, offset); 
+		}
 		/* increment offset by checking if lseek is at a new file/dir */
 		offset = findoffset(tar, offset);
+		if (offset == 0)
+		{
+			fprintf(stderr, "Corrupted tar file, ending extract\n");
+			return -1;
+		}
 	}
-}
-/*
-int main(int argc, char *argv[])
-{
-	int tar;
-	tar = open(argv[1], O_RDONLY);
-	extract(tar, 1);
 	return 0;
 }
-*/

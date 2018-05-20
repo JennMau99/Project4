@@ -48,6 +48,10 @@ int create(int argc, char **argv)
 	close(fd);
 
 	i = 3;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 772d32ab5b57b0b2409559393f6cc7c185e94c6b
 	/*then the rest of the args are cycled through (remaining files)*/
 	while(i < argc)
 	{
@@ -60,7 +64,11 @@ int create(int argc, char **argv)
 			filewriter(argv[2], buffer);
 			printf("%s\n", buffer);
         	}	
+<<<<<<< HEAD
 		listdir(argv[2], argv[i], indent);
+=======
+		listdir(argv[2], argv[i], 0);
+>>>>>>> 772d32ab5b57b0b2409559393f6cc7c185e94c6b
 		i++;
 	}
 	

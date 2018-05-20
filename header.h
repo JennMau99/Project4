@@ -1,3 +1,7 @@
+#ifndef HEADER_H
+#define HEADER_H
+
+
 struct Header {
 
         char name[100];
@@ -23,4 +27,12 @@ struct Header {
 
 int check(int *checkarray, char *argv);
 
+int create(int argc, char **argv);
+
+int list(int argc, char **argv);
+
+int extract(int argc, char *argv[], int verbose);
+
 typedef struct Header header;
+
+#endif
