@@ -24,6 +24,8 @@ int checksum;
 void listdir(char *tar, char *name, int indent);
 int insert_special_int(char *where, int size, int32_t val);
 char uid[8];
+int verbose;
+
 int create(int argc, char **argv)
 {
 	int i = 0;
@@ -31,17 +33,21 @@ int create(int argc, char **argv)
 	char buff[512];
 	struct stat st;
 	char * buffer;
-	
+ 	int indent = 0;	
 	/*In this implementation, argc and argv v from main are passed to create*/
 
+	for(i = 0; i < strlen(argv[1]); i++)
+        {
+                if(argv[1][i] == 'v')
+                        verbose = 1;
+        }
 
 	/*Jennifer -- the first open here opens/creates the tar file, change the arg number as necesary*/
 	/*make tar file*/
-	fd = open(argv[1], O_CREAT | O_TRUNC | O_WRONLY, 0700);
+	fd = open(argv[2], O_CREAT | O_TRUNC | O_WRONLY, 0700);
 	close(fd);
 
-	i = 2;
-
+	i = 3;
 	/*then the rest of the args are cycled through (remaining files)*/
 	while(i < argc)
 	{
@@ -51,16 +57,16 @@ int create(int argc, char **argv)
 			buffer = (char *)malloc((strlen(argv[i]) + 1) * sizeof(char)); 
                 	strcpy(buffer, argv[i]);
 			strcat(buffer, "/");
-			filewriter(argv[1], buffer);
+			filewriter(argv[2], buffer);
 			printf("%s\n", buffer);
         	}	
-		listdir(argv[1], argv[i], 0);
+		listdir(argv[2], argv[i], indent);
 		i++;
 	}
 	
 	memset(&buff, 0, 512);
 	
-	fd = open(argv[1], O_WRONLY | O_APPEND);
+	fd = open(argv[2], O_WRONLY | O_APPEND);
 
 	/*ending buffers*/
 	write(fd, &buff, 512);
@@ -88,15 +94,15 @@ void listdir(char *tar, char *name, int indent)
 	    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
                 continue;
             sprintf(path, "%s/%s", name, entry->d_name);
-	    printf("%s/\n",path);
-	    sprintf(dash, "%s/", path);
+	    /*printf("%s/\n",path);
+	    */sprintf(dash, "%s/", path);
 	    filewriter(tar, dash);
 	    listdir(tar, path, indent + 2);
         } else {
 	    char path[1024];
 	    sprintf(path, "%s/%s", name, entry->d_name);
-	    printf("%s\n", path); 
-	    filewriter(tar, path);
+	    /*printf("%s\n", path); 
+	    */filewriter(tar, path);
         }
     }
     closedir(dir);
@@ -105,10 +111,14 @@ void listdir(char *tar, char *name, int indent)
 
 int filewriter(char *tar, char *file)
 {
+	
 	int taropen;
 	header* head;
 	struct stat st;
+	
 
+	if(verbose == 1)
+		printf(file);
 	taropen = open(tar, O_APPEND | O_WRONLY, 0700);
 	
 	head = make_header(file);
@@ -267,8 +277,6 @@ int insert_special_int(char *where, int size, int32_t val) { /* For interoperabi
 * * using this technique. Returns 0 on success, nonzero * otherwise
 * */
 	int err=0;
-	printf("%d\n", size);
-	printf("%ld", sizeof(val));	
 	if(val<0 /*|| (size<sizeof(val)*/ ){
 /* if it’s negative, bit 31 is set and we can’t use the flag
  *           * if len is too small, we can’t write it. * done.

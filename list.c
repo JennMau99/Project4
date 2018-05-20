@@ -18,30 +18,50 @@
 #include <unistd.h>
 #include <time.h>
 
-struct Node {
-	char permissions[10];
-	char owner[17];
-	char size[8];
-	char mtime[16];
-	char name[100];
-	/*struct Node nodes[40];
-*/};
-typedef struct Node node;
-int make_tree(char *tar);
+int make_tree(char *tar, char verbose, int argc,  char **argv);
 
 int list(int argc, char **argv)
 {
 
 	/*read implementation notes in create*/
 
-	 make_tree(argv[1]);
+	int i;
+	int mode = 0;
+
+	for(i = 0; i < strlen(argv[1]); i++)
+	{
+		if(argv[1][i] == 'v')
+			mode = 1;
+	}
+	
+	make_tree(argv[2], mode, argc, argv);
 
 
 	return 0;
 }
 
+int check_conditions(int argc, char **argv, char *name)
+{
 
-int make_tree(char *tar)
+	int i = 0;
+
+	for(i = 0; i < argc; i++)
+	{
+		if(strncmp(name, argv[i], strlen(argv[i])) == 0)
+		{
+			
+			return 1;
+		}
+	}
+
+
+	return 0;
+
+
+
+}
+
+int make_tree(char *tar, char verbose, int argc, char **argv)
 {
 	int fd;
 	header head;
@@ -50,27 +70,49 @@ int make_tree(char *tar)
 	char buff[20];
 	char *groupuser;
 	time_t sec;
+	int included = 1;
+	char namebuff[256];		
+
+
 	fd = open(tar, O_RDONLY);
-	
+			
 	
 	while((read(fd, &head, 512)) > 0)
 	{
-		if(strcmp(head.magic, "ustar  ") == 0)
-		{
 
-		
-			mode = strtol(head.mode, '\0', 8);
-			/*print permissions	*/	
-			printf( (S_ISDIR(mode)) ? "d" : "-");
-    			printf( (mode & S_IRUSR) ? "r" : "-");
-    			printf( (mode & S_IWUSR) ? "w" : "-");
-    			printf( (mode & S_IXUSR) ? "x" : "-");
-    			printf( (mode & S_IRGRP) ? "r" : "-");
-    			printf( (mode & S_IWGRP) ? "w" : "-");
-    			printf( (mode & S_IXGRP) ? "x" : "-");
-    			printf( (mode & S_IROTH) ? "r" : "-");
-    			printf( (mode & S_IWOTH) ? "w" : "-");
-   			printf( (mode & S_IXOTH) ? "x" : "-");
+		strcpy(namebuff, head.prefix);
+		if(strlen(head.prefix) != 0)
+		{
+			strcat(namebuff, "/");
+		}
+		strcat(namebuff, head.name);
+
+	 	if(argc > 3)
+		{
+			included = check_conditions(argc, argv, namebuff);
+		}
+
+		if(included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
+		{
+			if(verbose != 0)
+			{
+				mode = strtol(head.mode, '\0', 8);
+				/*print permissions	*/	
+				if(head.typeflag == '5')
+					printf("d");
+				else if(head.typeflag == '2')
+					printf("l");
+				else	
+					printf("-");
+    				printf( (mode & S_IRUSR) ? "r" : "-");
+    				printf( (mode & S_IWUSR) ? "w" : "-");
+    				printf( (mode & S_IXUSR) ? "x" : "-");
+    				printf( (mode & S_IRGRP) ? "r" : "-");
+    				printf( (mode & S_IWGRP) ? "w" : "-");
+    				printf( (mode & S_IXGRP) ? "x" : "-");
+    				printf( (mode & S_IROTH) ? "r" : "-");
+    				printf( (mode & S_IWOTH) ? "w" : "-");
+   				printf( (mode & S_IXOTH) ? "x" : "-");
 	
 			printf(" ");	
 
@@ -99,11 +141,18 @@ int make_tree(char *tar)
 
 			printf(" ");
 
+			}
 			/*print name*/
-                        printf("%s",head.name);
-			printf("\n");
-
-		}
+			if(strlen(head.prefix) == 0)		
+			{
+				printf("%.100s\n",head.name);
+			}
+			else 
+			{
+				printf("%s/",head.prefix);
+				printf("%.100s\n",head.name);
+			}
+		}	
 	}
 	close(fd); 	
 	return 0;
