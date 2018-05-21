@@ -79,6 +79,7 @@ void writesym(int tar, off_t offset, char *nameptr)
 	lseek(tar, offset+157, SEEK_SET);
 	read(tar, linkname, 100);
 	symlink(linkname, nameptr);
+	free(linkname);
 }
 
 void writefile(int fd, int tar, off_t offset)
@@ -96,6 +97,7 @@ void writefile(int fd, int tar, off_t offset)
 	write(fd, buffer, intsize);
 	close(fd);
 	free(size);
+	free(buffer);
 }
 
 void writeids(char *path, int tar, off_t offset)
@@ -159,7 +161,7 @@ off_t findoffset(int tar, off_t offset)
 	/*if (version[0] != '0' || version[1] != '0')
 		return 0;
 	*/
-
+	free(size);
 	return offset;
 }
 
@@ -172,7 +174,7 @@ int findmode(int tar, off_t offset)
 	read(tar, mode, 8);
 	mode[8] = '\0';
 	newmode = strtol(mode, NULL, 8);
-	
+	free(mode);
 	if (newmode & S_IXUSR || newmode & S_IXGRP || newmode & S_IXOTH)
 		return 1;
 
@@ -205,8 +207,12 @@ int compnames(char *prefixptr, int argc, char *argv[])
 
 		sameptr = strstr(copyarg, prefixptr);
 		if (sameptr != NULL)
+		{
+			free(copyarg);
 			return 1;
+		}
 		i++;
+		free(copyarg);
 	}
 	return 0;
 }
@@ -241,7 +247,7 @@ int extract(int argc, char *argv[], int verbose)
 	while (lseek(tar, offset, SEEK_SET) < (lseek(tar, 0, SEEK_END) - 1024))
 	{
 		lseek(tar, offset, SEEK_SET);
-		bufferptr = (char *)malloc(sizeof(char) * 100);
+		bufferptr = (char *)malloc(sizeof(char) * 101);
 		prefixptr = (char *)malloc(sizeof(char) * 256);
 		read(tar, bufferptr, 100);
 		bufferptr[100] = '\0';
@@ -290,6 +296,7 @@ int extract(int argc, char *argv[], int verbose)
 		}
 		/* increment offset by checking if lseek is at a new file/dir */
 		offset = findoffset(tar, offset);
+		free(prefixptr);
 		if (offset == 0)
 		{
 			fprintf(stderr, "Corrupted tar file, ending extract\n");
