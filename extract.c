@@ -148,13 +148,10 @@ off_t findoffset(int tar, off_t offset)
 	else if (intsize < 512)
 		blocks = 2;
 	else if (intsize % 512 != 0)
-		blocks = (intsize / 512) + 2 ; /* intsize % 512  */
+		blocks = (intsize / 512) + 2 ;
 	else
 		blocks = intsize / 512 + 1;
 	offset = offset + (blocks * 512);
-	/*fprintf(stderr, "size was %d\n", intsize);
-	fprintf(stderr, "offset is now %d\n", offset);
-	*/
 
 	/* Stuff to help avoid corrupted parts of files */
 	lseek(tar, offset+263, SEEK_SET);

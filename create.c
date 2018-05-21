@@ -22,9 +22,10 @@ void get_checksum(header *head);
 int char_total(char *name);
 int checksum;
 void listdir(char *tar, char *name, int indent);
-int insert_special_int(char *where, int size, int32_t val);
 char uid[8];
 int verbose;
+void header_set_uid_bigsafe(char* buf, int32_t uid);
+int header_insert_special_int(char* where, int size, int32_t val);
 
 int create(int argc, char **argv)
 {
@@ -58,7 +59,6 @@ int create(int argc, char **argv)
                 	strcpy(buffer, argv[i]);
 			strcat(buffer, "/");
 			filewriter(argv[2], buffer);
-			printf("%s\n", buffer);
         	}	
 		listdir(argv[2], argv[i], indent);
 		i++;
@@ -118,11 +118,12 @@ int filewriter(char *tar, char *file)
 	
 
 	if(verbose == 1)
-	{
-		printf(file);
-		printf("\n");
-	}
+		printf("%s\n", file);
 	taropen = open(tar, O_APPEND | O_WRONLY, 0700);
+
+
+	if(stat(file, &st) < 0)
+		return -1;
 	
 	head = make_header(file);
 	
@@ -151,25 +152,58 @@ header* make_header(char * file)
 	header *head;
 	struct group *grp;
         struct passwd *pwd;
+	int i;
+	int stop;
+	int count = 0;
 	head = (header*)calloc(1, sizeof(header));
 	stat(file, &st);
 	/*name -- clear memset, check prefix later*/
-        strcpy(head->name, file);
+        
 
+	for(i = strlen(file); i >= 0; i--)
+	{
+		count++;
+		if(count > 100)
+			break;
+		if(file[i] == '/')
+		{
+			stop = i;
+			printf("%d\n", stop);
+		}
+	}
+
+		
+
+	if(strlen(file) > 100)
+	{
+		strncpy(head->prefix, file, stop);
+		strncpy(head->name, file + (stop+1), strlen(file));
+	}
+	else
+	{
+		strcpy(head->name, file);
+	}
+
+	
         /*mode*/
-        sprintf(head->mode, "%07o", (st.st_mode & 0x1F7FFF));
+        sprintf(head->mode, "%07o", (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)));
 
-        /*UID*/
+        /*UID
         sprintf(uid, "%07o", (unsigned short)st.st_uid);
 	
 	
 	insert_special_int(head->uid, 8, (uint32_t)st.st_uid);
+	*/
+
+	header_set_uid_bigsafe(head->uid, st.st_uid);
+	
+
 	/*GID*/
         sprintf(head->gid, "%07o", (unsigned int)st.st_gid);
 
-        /*size*/
-        sprintf(head->size, "%011o", (unsigned int)st.st_size);
-
+        /*size
+        sprintf(head->size, "%011o", (int)st.st_size);
+	*/
 	strcpy(head->chksum, "       ");
 
         /*mtime*/
@@ -179,11 +213,14 @@ header* make_header(char * file)
         if(S_ISREG(st.st_mode))
         {
 		head->typeflag = '0';
-        }
+        	sprintf(head->size, "%011o", (int)st.st_size);
+	}
         else if(S_ISDIR(st.st_mode))
         {
                 head->typeflag = '5';
-        }
+        	sprintf(head->size, "%011o", 0);
+
+	}
 
         /*linkname if symbolic link -- memset?*/
 
@@ -206,94 +243,116 @@ header* make_header(char * file)
 	
 	return head;
 }
-
+/*
 void get_checksum(header *head)
 {
 	int checksum = 0;
 	char *ptr;
 
-	ptr = (char*)(head->name);
-	checksum += char_total(ptr);
+	checksum += char_total(head->name);
 
-	ptr = (char*)(head->mode);
-        checksum += char_total(ptr);
+        checksum += char_total(head->mode);
 
-	ptr = (char*)(uid);
-        checksum += char_total(ptr);
+        checksum += char_total(head->uid);
 
-	ptr = (char*)(head->gid);
-        checksum += char_total(ptr);
+        checksum += char_total(head->gid);
 
-	ptr = (char*)(head->size);
-        checksum += char_total(ptr);
+        checksum += char_total(head->size);
 
-	ptr = (char*)(head->mtime);
-        checksum += char_total(ptr);
+        checksum += char_total(head->mtime);
 
         checksum += (unsigned int)head->typeflag;
 
-	ptr = (char*)(head->linkname);
-	checksum+= char_total(ptr);
+	checksum+= char_total(head->linkname);
 
-	ptr = (char*)(head->magic);
-        checksum += char_total(ptr);
+        checksum += char_total(head->magic);
 
-	ptr = (char*)(head->chksum);
-	checksum += char_total(ptr);
+	checksum += char_total(head->chksum);
 
-	ptr = (char*)(head->uname);
-        checksum += char_total(ptr);
+        checksum += char_total(head->uname);
 
+        checksum += char_total(head->gname);
 
-	ptr = (char*)(head->gname);
-        checksum += char_total(ptr);
+        checksum += char_total(head->devmajor);
 
-	 ptr = (char*)(head->devmajor);
-        checksum += char_total(ptr);
+        checksum += char_total(head->devminor);
 
-	 ptr = (char*)(head->devminor);
-        checksum += char_total(ptr);
-
-	checksum+=77;
-	checksum+=96;
+	checksum += char_total(head->prefix);
+	
 	sprintf(head->chksum, "%07o", checksum);
-}	
+}*/
+
+void get_checksum(header *head)
+{
+	unsigned char *ptr;
+	int i;
+	int sum = 0;
+
+
+	ptr = (unsigned char *)head;
+
+	for(i = 0; i < 512; i++)
+	{
+		if(i < 148 || i > 155)
+		{
+			sum += ptr[i];
+		}
+		else
+		{
+			sum += 32;
+		}
+	}
+	sprintf(head->chksum, "%07o", sum);
+}
+
+
+
 
 int char_total(char *name)
 {
 	int i = 0;
 	int total = 0;
 
-	for(i = 0; name[i] != '\0'; i++)
+	for(i = 0; i < strlen(name); i++)
 	{
-		total += (int)name[i];
+		printf("%c", name[i]);
+		total += (int)((unsigned char)name[i]);
 	}
 
 	return total;
 }
 
-int insert_special_int(char *where, int size, int32_t val) { /* For interoperability with GNU tar. GNU seems to
-* set the high–order bit of the first byte, then
-* * treat the rest of the field as a binary integer
-* * in network byte order.
-* * Insert the given integer into the given field
-* * using this technique. Returns 0 on success, nonzero * otherwise
-* */
-	int err=0;
-	if(val<0 /*|| (size<sizeof(val)*/ ){
-/* if it’s negative, bit 31 is set and we can’t use the flag
- *           * if len is too small, we can’t write it. * done.
- *           */
-		err++;
-	} else {
-/* game on....*/
-		memset(where, 0, size);
-		*(int32_t*)(where+size-sizeof(val)) = htonl(val);
-		*where |= 0x80; /* set that high–order bit */
-	}
-	return err; 
+void header_set_uid_bigsafe(char* buf, int32_t uid)
+{
+    int toobig = 07777777;
+
+    /* Tests if bitpacking is needed */
+    if(uid > toobig)
+    {
+        header_insert_special_int(buf, 8, uid);
+    }
+    else
+    {
+	sprintf(buf, "%07o", uid);
+        /* Do normal formatting as octal */
+    }
 }
 
+int header_insert_special_int(char* where, int size, int32_t val)
+{
+    int err = 0;
+    if (val < 0 || size < sizeof(val))
+    {
+        err++;
+    }
+    else
+    {
+        memset(where, 0, size);
+        *(int32_t *)(where+size-sizeof(val)) = htonl(val);
+        *where |= 0x80;
+    }
+    return err;
+}
 
 void write_file(char * file, char* tar)
 {

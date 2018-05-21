@@ -1,6 +1,8 @@
 #ifndef HEADER_H
 #define HEADER_H
 
+#include <unistd.h>
+#include <sys/types.h>
 
 struct Header {
 
@@ -22,6 +24,8 @@ struct Header {
         char prefix[155];
 	char hi[12];
 };
+
+off_t findoffset(int tar, off_t offset);
 
 
 

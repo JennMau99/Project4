@@ -34,7 +34,11 @@ int list(int argc, char **argv)
 			mode = 1;
 	}
 	
-	make_tree(argv[2], mode, argc, argv);
+	if (make_tree(argv[2], mode, argc, argv) < 0)
+	{
+		fprintf(stderr, "Bad tar file\n");
+		return -1;
+	}
 
 
 	return 0;
@@ -60,6 +64,63 @@ int check_conditions(int argc, char **argv, char *name)
 
 
 }
+/* This needs to be fixed */
+int valid(int tar, header *head)
+{
+	char checksum[9];
+	char givenchecksum[9];
+	unsigned char *ptr;
+	int i;
+	int sum = 0;
+
+	checksum[8] = '\0';
+	givenchecksum[8] = '\0';
+
+	ptr = (unsigned char *)head;
+
+	for(i = 0; i < 512; i++)
+	{
+		if(i < 148 || i > 155)
+		{
+			sum += ptr[i];
+		}
+		else
+		{
+			sum += 32;
+		}
+	}
+
+    sprintf(checksum, "%07o", sum);
+	read(tar, &givenchecksum, 8);
+
+	/*fprintf(stderr, "%s\n", checksum);
+	fprintf(stderr, "%s\n", givenchecksum);
+	*/
+	if(strcmp(checksum, givenchecksum) == 0)
+		return 1;
+	return 1;
+
+}
+
+int checkifvalid(int tar)
+{
+	off_t offset = 0;
+	header head;
+	int v;	
+
+	while (lseek(tar, offset, SEEK_SET) < (lseek(tar, 0, SEEK_END) - 1024))
+	{
+		read(tar, &head, 512);
+		lseek(tar, offset+148, SEEK_SET);
+		v = valid(tar, &head);
+		if (v == 0)
+			return -1;
+		offset = findoffset(tar, offset);
+	}
+	
+	return 0;
+}
+
 
 int make_tree(char *tar, char verbose, int argc, char **argv)
 {
@@ -72,14 +133,17 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	time_t sec;
 	int included = 1;
 	char namebuff[256];		
-
+	int v; 
 
 	fd = open(tar, O_RDONLY);
 			
-	
+	v = checkifvalid(fd);
+	/*if (v < 0)
+		return -1;
+	*/
+	lseek(fd, 0, SEEK_SET);
 	while((read(fd, &head, 512)) > 0)
 	{
-
 		strcpy(namebuff, head.prefix);
 		if(strlen(head.prefix) != 0)
 		{
@@ -91,6 +155,7 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 		{
 			included = check_conditions(argc, argv, namebuff);
 		}
+	
 
 		if(included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
 		{
@@ -115,7 +180,6 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
    				printf( (mode & S_IXOTH) ? "x" : "-");
 	
 			printf(" ");	
-
 	
 			/*print group and username*/	
 			groupuser = malloc(strlen(head.gname) + strlen(head.uname) + 2);
@@ -152,7 +216,8 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 				printf("%s/",head.prefix);
 				printf("%.100s\n",head.name);
 			}
-		}	
+		}
+			
 	}
 	close(fd); 	
 	return 0;
