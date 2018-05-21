@@ -168,7 +168,6 @@ header* make_header(char * file)
 		if(file[i] == '/')
 		{
 			stop = i;
-			printf("%d\n", stop);
 		}
 	}
 
@@ -315,7 +314,6 @@ int char_total(char *name)
 
 	for(i = 0; i < strlen(name); i++)
 	{
-		printf("%c", name[i]);
 		total += (int)((unsigned char)name[i]);
 	}
 
