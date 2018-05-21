@@ -61,6 +61,33 @@ int check_conditions(int argc, char **argv, char *name)
 
 }
 
+int valid(header *head)
+{
+        unsigned char *ptr;
+        int i;
+        int sum = 0;
+	char checksum[8];
+
+        ptr = (unsigned char *)head;
+
+        for(i = 0; i < 512; i++)
+        {
+                if(i < 148 || i > 155)
+                {
+                        sum += ptr[i];
+                }
+                else
+                {
+                        sum += 32;
+                }
+        }
+        sprintf(checksum, "%07o", sum);
+	if(strcmp(checksum, head->chksum) == 0)
+		return 1;
+	return 0;
+
+}
+
 int make_tree(char *tar, char verbose, int argc, char **argv)
 {
 	int fd;
@@ -72,7 +99,7 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	time_t sec;
 	int included = 1;
 	char namebuff[256];		
-
+	int v; 
 
 	fd = open(tar, O_RDONLY);
 			
@@ -91,6 +118,7 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 		{
 			included = check_conditions(argc, argv, namebuff);
 		}
+	
 
 		if(included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
 		{
@@ -115,7 +143,6 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
    				printf( (mode & S_IXOTH) ? "x" : "-");
 	
 			printf(" ");	
-
 	
 			/*print group and username*/	
 			groupuser = malloc(strlen(head.gname) + strlen(head.uname) + 2);
@@ -152,7 +179,8 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 				printf("%s/",head.prefix);
 				printf("%.100s\n",head.name);
 			}
-		}	
+		}
+			
 	}
 	close(fd); 	
 	return 0;
