@@ -217,7 +217,6 @@ int compnames(char *prefixptr, int argc, char *argv[])
 	return 0;
 }
 
-
 int extract(int argc, char *argv[], int verbose)
 {
 	off_t offset = 0;

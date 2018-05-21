@@ -36,7 +36,6 @@ int list(int argc, char **argv)
 	
 	if (make_tree(argv[2], mode, argc, argv) < 0)
 	{
-		fprintf(stderr, "Bad tar file\n");
 		return -1;
 	}
 
@@ -65,43 +64,44 @@ int check_conditions(int argc, char **argv, char *name)
 
 }
 /* This needs to be fixed */
-int valid(int tar, header *head)
+int valid(header *head)
 {
-	char checksum[9];
-	char givenchecksum[9];
-	unsigned char *ptr;
-	int i;
-	int sum = 0;
+    unsigned char *ptr;
+    int i;
+    int sum = 0;
+	char checksum[8];
 
-	checksum[8] = '\0';
-	givenchecksum[8] = '\0';
+    ptr = (unsigned char *)head;
 
-	ptr = (unsigned char *)head;
+    for(i = 0; i < 512; i++)
+    {
+        if(i < 148 || i > 155)
+        {
+            sum += ptr[i];
+        }
+        else
+        {
+            sum += 32;
+        }
+    }
 
-	for(i = 0; i < 512; i++)
+	if(strlen(head->chksum) == 7)
 	{
-		if(i < 148 || i > 155)
-		{
-			sum += ptr[i];
-		}
-		else
-		{
-			sum += 32;
-		}
+     	sprintf(checksum, "%07o", sum);
+	
 	}
-
-    sprintf(checksum, "%07o", sum);
-	read(tar, &givenchecksum, 8);
-
-	/*fprintf(stderr, "%s\n", checksum);
-	fprintf(stderr, "%s\n", givenchecksum);
-	*/
-	if(strcmp(checksum, givenchecksum) == 0)
+	else if(strlen(head->chksum) == 6)
+	{
+		sprintf(checksum, "%06o", sum);
+	
+	}
+	/*printf("\n%s %lu\n", checksum, strlen(checksum));
+	*/if(strcmp(checksum, head->chksum) == 0)
 		return 1;
-	return 1;
+	return 0;
 
 }
-
+/*
 int checkifvalid(int tar)
 {
 	off_t offset = 0;
@@ -120,7 +120,7 @@ int checkifvalid(int tar)
 	
 	return 0;
 }
-
+*/
 
 int make_tree(char *tar, char verbose, int argc, char **argv)
 {
@@ -134,11 +134,12 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	int included = 1;
 	char namebuff[256];		
 	int v; 
+	int headerokay = 0;
 
 	fd = open(tar, O_RDONLY);
 			
-	v = checkifvalid(fd);
-	/*if (v < 0)
+	/*v = checkifvalid(fd);
+	if (v < 0)
 		return -1;
 	*/
 	lseek(fd, 0, SEEK_SET);
@@ -156,9 +157,25 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 			included = check_conditions(argc, argv, namebuff);
 		}
 	
+		
+		/*if(v == 0)
+		{
+			fprintf(stderr, "usage!");
+			return;
+		}*/
+
+
 
 		if(included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
 		{
+			headerokay = 1;
+			v = valid(&head);
+			if(v == 0)
+			{
+				fprintf(stderr, "corrupt tar file\n");
+				return -1;
+
+			}
 			if(verbose != 0)
 			{
 				mode = strtol(head.mode, '\0', 8);
@@ -216,10 +233,17 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 				printf("%s/",head.prefix);
 				printf("%.100s\n",head.name);
 			}
+			/*printf("%s %lu", head.chksum, strlen(head.chksum));
+			*/
 		}
 			
 	}
 	close(fd); 	
+	if(headerokay == 0)
+	{
+		fprintf(stderr, "corrupt tar file!\n");
+		return 1;
+	}
 	return 0;
 
 
