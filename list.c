@@ -1,4 +1,4 @@
-/*RICHA GADGIL SECTION 03-357 TAYLOR*/
+/*RICHA GADGIL JENNIFER MAUNDER SECTION 03-357 TAYLOR*/
 #define _GNU_SOURCE 1
 #define _POSIX_SOURCE
 #define _USE_XOPEN
@@ -18,8 +18,10 @@
 #include <unistd.h>
 #include <time.h>
 
-int make_tree(char *tar, char verbose, int argc,  char **argv);
+int make_tree(char *tar, int argc,  char **argv);
 int standard;
+int verbose;
+void print_header(header *head);
 
 
 int list(int argc, char **argv)
@@ -33,12 +35,12 @@ int list(int argc, char **argv)
 	for(i = 0; i < strlen(argv[1]); i++)
 	{
 		if(argv[1][i] == 'v')
-			mode = 1;
+			verbose = 1;
 		if(argv[1][i] == 's')
 			standard = 1;
 	}
 	
-	if (make_tree(argv[2], mode, argc, argv) < 0)
+	if (make_tree(argv[2], argc, argv) < 0)
 	{
 		return -1;
 	}
@@ -106,26 +108,6 @@ int valid(header *head)
 	return 0;
 
 }
-/*
-int checkifvalid(int tar)
-{
-	off_t offset = 0;
-	header head;
-	int v;	
-
-	while (lseek(tar, offset, SEEK_SET) < (lseek(tar, 0, SEEK_END) - 1024))
-	{
-		read(tar, &head, 512);
-		lseek(tar, offset+148, SEEK_SET);
-		v = valid(tar, &head);
-		if (v == 0)
-			return -1;
-		offset = findoffset(tar, offset);
-	}
-	
-	return 0;
-}
-*/
 
 int check_standard(header *head)
 {
@@ -145,7 +127,7 @@ int check_standard(header *head)
 
 
 }
-int make_tree(char *tar, char verbose, int argc, char **argv)
+int make_tree(char *tar, int argc, char **argv)
 {
 	int fd;
 	header head;
@@ -166,16 +148,6 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	lseek(fd, 0, SEEK_SET);
 	while((read(fd, &head, 512)) > 0)
 	{
-		/*namebuff = (char *)malloc((strlen(head.prefix) + strlen(head.name) + 1) * sizeof(char));
-		*//*
-		strcpy(namebuff, head.prefix);
-		if(strlen(head.prefix) != 0)
-		{
-				
-		}
-		strcpy(namebuff, namebuff);
-		strcat(namebuff, head.name);
-*/
 
 		
 
@@ -200,74 +172,8 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 
 		if(check_standard(&head) == 1 && included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
 		{
-
 			headerokay = 1;
-			v = valid(&head);
-			if(v == 0)
-			{
-				fprintf(stderr, "corrupt tar file\n");
-				return -1;
-
-			}
-			if(verbose != 0)
-			{
-				mode = strtol(head.mode, '\0', 8);
-				/*print permissions	*/	
-				if(head.typeflag == '5')
-					printf("d");
-				else if(head.typeflag == '2')
-					printf("l");
-				else	
-					printf("-");
-    				printf( (mode & S_IRUSR) ? "r" : "-");
-    				printf( (mode & S_IWUSR) ? "w" : "-");
-    				printf( (mode & S_IXUSR) ? "x" : "-");
-    				printf( (mode & S_IRGRP) ? "r" : "-");
-    				printf( (mode & S_IWGRP) ? "w" : "-");
-    				printf( (mode & S_IXGRP) ? "x" : "-");
-    				printf( (mode & S_IROTH) ? "r" : "-");
-    				printf( (mode & S_IWOTH) ? "w" : "-");
-   				printf( (mode & S_IXOTH) ? "x" : "-");
-	
-			printf(" ");	
-	
-			/*print group and username*/	
-			groupuser = malloc(strlen(head.gname) + strlen(head.uname) + 2);
-			strcpy(groupuser, head.gname);
-			strcat(groupuser, "/");
-			strcat(groupuser, head.uname);			
-			printf("%.17s", groupuser);
-			free(groupuser);
-		
-			printf(" ");
-
-			/*print size*/
-			mode = strtol(head.size, '\0', 8);		
-			printf("%8d", mode);
-			
-			printf(" ");
-
-			/*work on getting time to work!!*/
-			mode = strtol(head.mtime, '\0', 8);
-			sec = (time_t)mode;
-			strftime(buff, 20, "%Y-%m-%d %H:%M", localtime(&sec));	
-			printf(buff);
-
-			printf(" ");
-
-			}
-			/*print name*/
-			if(strlen(head.prefix) == 0)		
-			{
-				printf("%.100s\n",head.name);
-			}
-			else 
-			{
-				printf("%s/",head.prefix);
-				printf("%.100s\n",head.name);
-			}
-			/*printf("%s %lu", head.chksum, strlen(head.chksum));
-			*/
+			print_header(&head);
 		}
 			
 	}
@@ -280,6 +186,79 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	return 0;
 
 
+}
+
+void print_header(header *head)
+{
+        unsigned int mode;
+        char buff[20];
+        char *groupuser;
+        time_t sec;
+	int v;
+	                v = valid(head);
+                        if(v == 0)
+                        {
+                                fprintf(stderr, "corrupt tar file\n");
+                                return;
+
+                        }
+                        if(verbose != 0)
+                        {
+                                mode = strtol(head->mode, '\0', 8);
+                                /*print permissions     */
+                                if(head->typeflag == '5')
+                                        printf("d");
+                                else if(head->typeflag == '2')
+                                        printf("l");
+                                else
+                                        printf("-");
+                                printf( (mode & S_IRUSR) ? "r" : "-");
+                                printf( (mode & S_IWUSR) ? "w" : "-");
+                                printf( (mode & S_IXUSR) ? "x" : "-");
+                                printf( (mode & S_IRGRP) ? "r" : "-");
+                                printf( (mode & S_IWGRP) ? "w" : "-");
+                                printf( (mode & S_IXGRP) ? "x" : "-");
+                                printf( (mode & S_IROTH) ? "r" : "-");
+                                printf( (mode & S_IWOTH) ? "w" : "-");
+                                printf( (mode & S_IXOTH) ? "x" : "-");
+
+                        printf(" ");
+
+                        /*print group and username*/
+                        groupuser = malloc(strlen(head->gname) + strlen(head->uname) + 2);
+                        strcpy(groupuser, head->gname);
+                        strcat(groupuser, "/");
+                        strcat(groupuser, head->uname);
+                        printf("%.17s", groupuser);
+                        free(groupuser);
+
+                        printf(" ");
+
+                        /*print size*/
+                        mode = strtol(head->size, '\0', 8);
+                        printf("%8d", mode);
+
+                        printf(" ");
+
+                        /*work on getting time to work!!*/
+                        mode = strtol(head->mtime, '\0', 8);
+                        sec = (time_t)mode;
+                        strftime(buff, 20, "%Y-%m-%d %H:%M", localtime(&sec));
+                        printf(buff);
+
+                        printf(" ");
+
+                        }
+                        /*print name*/
+                        if(strlen(head->prefix) == 0)
+                        {
+                                printf("%.100s\n",head->name);
+                        }
+                        else
+                        {
+                                printf("%s/",head->prefix);
+                                printf("%.100s\n",head->name);
+                        }
 }
 
 
