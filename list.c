@@ -19,6 +19,8 @@
 #include <time.h>
 
 int make_tree(char *tar, char verbose, int argc,  char **argv);
+int standard;
+
 
 int list(int argc, char **argv)
 {
@@ -32,6 +34,8 @@ int list(int argc, char **argv)
 	{
 		if(argv[1][i] == 'v')
 			mode = 1;
+		if(argv[1][i] == 's')
+			standard = 1;
 	}
 	
 	if (make_tree(argv[2], mode, argc, argv) < 0)
@@ -87,17 +91,18 @@ int valid(header *head)
 
 	if(strlen(head->chksum) == 7)
 	{
-     	sprintf(checksum, "%07o", sum);
-	
+  	   	sprintf(checksum, "%07o", sum);
+		if(strcmp(checksum, head->chksum) == 0)
+                	return 1;
 	}
 	else if(strlen(head->chksum) == 6)
 	{
 		sprintf(checksum, "%06o", sum);
-	
+		if(strncmp(checksum, head->chksum, 6) == 0)
+                	return 1;
 	}
 	/*printf("\n%s %lu\n", checksum, strlen(checksum));
-	*/if(strcmp(checksum, head->chksum) == 0)
-		return 1;
+*/
 	return 0;
 
 }
@@ -122,6 +127,24 @@ int checkifvalid(int tar)
 }
 */
 
+int check_standard(header *head)
+{
+
+	if(standard == 0)
+		return 1;
+	else if(standard == 1)
+	{
+		if(strncmp(head->version, "00", strlen("00") == 0)) 
+		{
+			return 1;
+		}
+	}
+
+	return 0;
+
+
+
+}
 int make_tree(char *tar, char verbose, int argc, char **argv)
 {
 	int fd;
@@ -132,42 +155,52 @@ int make_tree(char *tar, char verbose, int argc, char **argv)
 	char *groupuser;
 	time_t sec;
 	int included = 1;
-	char namebuff[256];		
 	int v; 
 	int headerokay = 0;
+	/*char *namebuff;
+	*/
+
+	char namebuff[1000];
 
 	fd = open(tar, O_RDONLY);
-			
-	/*v = checkifvalid(fd);
-	if (v < 0)
-		return -1;
-	*/
 	lseek(fd, 0, SEEK_SET);
 	while((read(fd, &head, 512)) > 0)
 	{
+		/*namebuff = (char *)malloc((strlen(head.prefix) + strlen(head.name) + 1) * sizeof(char));
+		*//*
 		strcpy(namebuff, head.prefix);
 		if(strlen(head.prefix) != 0)
 		{
-			strcat(namebuff, "/");
+				
 		}
+		strcpy(namebuff, namebuff);
 		strcat(namebuff, head.name);
+*/
 
+		
+
+		if(strlen(head.prefix) != 0)	
+		{
+			sprintf(namebuff, "%s/%s", head.prefix, head.name);
+ 		}
+		else
+		{
+			sprintf(namebuff, "%s%s", head.prefix, head.name);
+		}
+
+
+		
 	 	if(argc > 3)
 		{
 			included = check_conditions(argc, argv, namebuff);
 		}
+
 	
-		
-		/*if(v == 0)
+
+
+		if(check_standard(&head) == 1 && included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
 		{
-			fprintf(stderr, "usage!");
-			return;
-		}*/
 
-
-
-		if(included == 1 && strncmp(head.magic, "ustar", strlen("ustar")) == 0)
-		{
 			headerokay = 1;
 			v = valid(&head);
 			if(v == 0)

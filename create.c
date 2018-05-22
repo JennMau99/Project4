@@ -46,6 +46,11 @@ int create(int argc, char **argv)
 	/*Jennifer -- the first open here opens/creates the tar file, change the arg number as necesary*/
 	/*make tar file*/
 	fd = open(argv[2], O_CREAT | O_TRUNC | O_WRONLY, 0700);
+	if(fd  < 0)
+	{
+		fprintf(stderr, "File could not be opened");
+		return 0;
+	}
 	close(fd);
 
 	i = 3;
@@ -59,7 +64,8 @@ int create(int argc, char **argv)
                 	strcpy(buffer, argv[i]);
 			strcat(buffer, "/");
 			filewriter(argv[2], buffer);
-        	}	
+        		free(buffer);
+		}	
 		listdir(argv[2], argv[i], indent);
 		i++;
 	}
@@ -67,13 +73,18 @@ int create(int argc, char **argv)
 	memset(&buff, 0, 512);
 	
 	fd = open(argv[2], O_WRONLY | O_APPEND);
+	if(fd < 0)
+	{       
+                fprintf(stderr, "File could not be opened");
+                return 0;
+        }
 
 	/*ending buffers*/
 	write(fd, &buff, 512);
 	write(fd, &buff, 512);
 
 	close(fd);
-	return 0;
+	return 1;
 }
 
 
@@ -120,10 +131,18 @@ int filewriter(char *tar, char *file)
 	if(verbose == 1)
 		printf("%s\n", file);
 	taropen = open(tar, O_APPEND | O_WRONLY, 0700);
+	if(taropen < 0)
+	{       
+                fprintf(stderr, "File could not be opened");
+                return 0;
+        }
 
 
 	if(stat(file, &st) < 0)
-		return -1;
+	{
+		fprintf(stderr, "file could not be read.");
+		return 0;
+	}
 	
 	head = make_header(file);
 	
@@ -141,7 +160,7 @@ int filewriter(char *tar, char *file)
 
 
 
-	return 0;
+	return 1;
 
 }
 		
@@ -242,44 +261,6 @@ header* make_header(char * file)
 	
 	return head;
 }
-/*
-void get_checksum(header *head)
-{
-	int checksum = 0;
-	char *ptr;
-
-	checksum += char_total(head->name);
-
-        checksum += char_total(head->mode);
-
-        checksum += char_total(head->uid);
-
-        checksum += char_total(head->gid);
-
-        checksum += char_total(head->size);
-
-        checksum += char_total(head->mtime);
-
-        checksum += (unsigned int)head->typeflag;
-
-	checksum+= char_total(head->linkname);
-
-        checksum += char_total(head->magic);
-
-	checksum += char_total(head->chksum);
-
-        checksum += char_total(head->uname);
-
-        checksum += char_total(head->gname);
-
-        checksum += char_total(head->devmajor);
-
-        checksum += char_total(head->devminor);
-
-	checksum += char_total(head->prefix);
-	
-	sprintf(head->chksum, "%07o", checksum);
-}*/
 
 void get_checksum(header *head)
 {
@@ -305,20 +286,6 @@ void get_checksum(header *head)
 }
 
 
-
-
-int char_total(char *name)
-{
-	int i = 0;
-	int total = 0;
-
-	for(i = 0; i < strlen(name); i++)
-	{
-		total += (int)((unsigned char)name[i]);
-	}
-
-	return total;
-}
 
 void header_set_uid_bigsafe(char* buf, int32_t uid)
 {
@@ -362,7 +329,17 @@ void write_file(char * file, char* tar)
         memset(buff, 0, 512);
 
         fd = open(file, O_RDONLY);
+	if(fd < 0)
+	{       
+                fprintf(stderr, "File could not be opened");
+                return;
+        }
         fp = open(tar, O_WRONLY | O_APPEND);
+	if(fp < 0)
+	{       
+                fprintf(stderr, "File could not be opened");
+                return;
+        }
 
         while(read(fd, &buff, 512) > 0)
         {
